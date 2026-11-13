@@ -1,122 +1,68 @@
-# Convallax Testnet Bot
+# Convallax Testnet Bot v1.1
 
-Options trading automation for [Convallax](https://www.convallax.com/predict) — trade calls and puts on Polymarket prediction market outcomes.
+Options volume farming untuk [Convallax](https://www.convallax.com/predict) — options exchange di prediction market (Polymarket YES outcomes), settle on-chain di Polygon Amoy.
 
-## Bukti run (dari bot sendiri, bukan mockup)
+Bot membuka RFQ ke market maker, commit ke quote terbaik, lalu mengeksekusi `fill()` satu transaksi: premium dibayar, collateral terkunci, option token (ERC-1155) di-mint.
 
-![Convallax volume farming](docs/screenshots/run.png)
+> Source code private (produk LYID). Repo ini hanya dokumentasi & bukti run.
 
-Kartu di atas dirender dari output bot sendiri (`convallax-manual-test-output.txt`): 10 ronde
-volume farming, order PUT di pasar "Bitcoin Up or Down", quote request ke backend, dan
-`Trade confirmed on backend`. Alamat wallet dipotong (`0x48e3...Db47`).
+## Bukti run on-chain (14 Nov 2026)
 
-**Status hari ini (13 Nov 2026), apa adanya:**
+Fill nyata dari bot, bukan mockup:
 
-- RPC lama `rpc-amoy.polygon.technology` sudah mati (`getaddrinfo ENOTFOUND`) → `config.rpcUrl`
-  diganti ke `https://polygon-amoy-bor-rpc.publicnode.com` (chainId 80002, sudah dicek).
-- Faucet: wallet 1 dapat HTTP 503 (endpoint sedang ganggu), wallet 2 **sukses 1000 test USDC**
-  dengan TX `0xd41caf...01dd`.
-- Volume farming hari ini **dilewati**: saldo POL 0.0183 / 0.0337, sedangkan bot minta ≥ 0.05 POL
-  untuk gas. Bukan bug — wallet memang belum diisi gas. Isi sedikit POL Amoy lalu jalankan lagi.
+- `0xd60e895c269482085c409ca850a7402eecfceb38118ed3f40ef9cddd113eac80` — PUT 80% @0.6964, 11 kontrak ($7.66), gas 203.243
+- `0x841d26c2cb38363eb0ebf84511b908dd6fab7e655d72818537aca00c175241dd` — PUT 20%, 67 kontrak ($11.61)
+- `0x86fb44da0d898f709ba0e590148b300afad2b42d0e7caa6696c472e62666cb8c` — PUT 40%, 18 kontrak ($6.27)
+- `0x853123aed63912218fb98b5b4aa06bffb69318d446abf191fb72f96eba3047f1` — PUT 40%, 15 kontrak ($4.84)
+- `0x0f478ef76926180aa5d7483a418b52cee2f073b053ea61f0237fcd78d8b51026` — buy di "Stripe acquire Paypal"
+- `0x2a212afda7ef0c93b7cf81120b9744392d298774e47874a1b59f720f8c80f814` — sisi **sell** 16 kontrak, premium diterima
 
-## 🌐 Website
-https://www.convallax.com/predict
+Cek di [amoy.polygonscan.com](https://amoy.polygonscan.com).
 
-## 🔗 Referral
-https://www.convallax.com/predict
+## Highlights v1.1
 
-## Features
-- 🚰 **Auto Faucet** — Claim 1000 test USDC + POL gas per wallet
-- 📈 **Options Trading** — Request quotes → commit → fill on-chain
-- 🔄 **Volume Farming** — Multi-round trading for Zealy quest completion
-- 👛 **Multi-Wallet** — Process unlimited wallets from privateKey.txt
-- ⚡ **CLI Menu** — Interactive menu + `--daily` / `--faucet` flags
+- **API v3** (`api.convallax.com`): `/v1/markets`, `/v1/series`, `/quote-requests`, `/faucet`.
+- **Fix quote kosong**: filter series kedaluwarsa (expiry > 48 jam) + kirim `market.yesPrice`. Sebelum fix: 0/14 request dapat quote. Sesudah: 31/32 (uji matriks).
+- **Humanization anti-sybil**: budget acak non-bulat ($3–12), jeda 45–210s antar trade, 2–7 menit antar wallet, jitter sesi 0–15 menit, skip 8%, kuota 12 trade/wallet/hari, market disebar merata, 85% buy / 15% sell.
+- **Multi-wallet** dari satu `privateKey.txt`.
+- **Sell side** (menulis opsi, collateral USDC terkunci) dan **buy side**.
+- `--status` read-only, `--once`, `--daily`, `--faucet`, `--side`, `--dry-run`.
 
-## Chain
-- **Network:** Polygon Amoy Testnet (Chain ID 80002)
-- **RPC:** https://rpc-amoy.polygon.technology
-- **Explorer:** https://amoy.polygonscan.com
+## Fitur
 
-## Contracts
-| Contract | Address |
-|----------|---------|
-| ConvallaxCore | `0xc760F8f6B8830463822be9F68eB10e1b5Dace378` |
-| ConvallaxRFQSettlement | `0xC6Eb814Cc01189e20B2DB2D2a22Ed2DcAC404992` |
-| ConvallaxOptionToken | `0xd6F69CecCdf846563bE20A860F0A38D3e9324959` |
-| USDC (test) | `0xCc544B615B244Cf59A7cB6Cb7d7119ef73A485E5` |
+| Fitur | Keterangan |
+|---|---|
+| Auto faucet | 1000 test USDC / wallet / 24 jam |
+| Quote RFQ | buka request, poll quote, commit otomatis |
+| On-chain fill | approve + `fill()` atomik |
+| Multi-wallet | urutan diacak, jeda manusiawi |
+| State harian | `data/state.json` (kuota + riwayat tx) |
+| Retry pintar | pindah market/series kalau maker tidak menjawab |
 
-## Setup
-```bash
-npm install
-```
+## Chain & kontrak
 
-Add your private key(s) to `privateKey.txt` (one per line):
-```
-0xYOUR_PRIVATE_KEY_HERE
-```
+| Item | Nilai |
+|---|---|
+| Network | Polygon Amoy (chain ID 80002) |
+| RPC | `https://polygon-amoy-bor-rpc.publicnode.com` |
+| Core | `0x76c41a03e0993F0261bB3B1949320cA693f76faE` |
+| RFQ Settlement | `0x3E583BC44157c91F8c534372A3e91c371841107A` |
+| Option Token (ERC-1155) | `0x68a45fFc7d5282665ffa01Ec04ff133a4384F7e1` |
+| MockUSDC | `0xCc544B615B244Cf59A7cB6Cb7d7119ef73A485E5` |
 
-## Usage
-```bash
-# Interactive menu
-node index.js
+## Status project (14 Nov 2026)
 
-# Auto daily (faucet + farm volume all wallets)
-node index.js --daily
+- Testnet masih live. **Belum ada pengumuman token/TGE/airdrop resmi.**
+- Backing: Alliance (ALL17). Audit: Sherlock.
+- Quest Zealy lama sudah tidak ditemukan di `zealy.io/cw/convallax`.
+- Halaman pihak ketiga yang menyebut TGE 2024/2025 = data lama, tidak valid.
 
-# Faucet only
-node index.js --faucet
-```
+## Dapatkan bot
 
-### Menu Options
-1. **Claim Faucet** — 1000 USDC per wallet
-2. **Single Trade** — One trade with first wallet
-3. **Farm Volume** — Multiple rounds with first wallet
-4. **Farm Volume All** — Multiple rounds all wallets
-5. **Check Balance** — USDC + POL for all wallets
-6. **Full Daily** — Faucet + farm all wallets
+Bot tersedia sebagai produk LYID (Rp 100.000, lifetime, 1 device).
 
-## Trade Flow
-1. Fetch active markets from `/v1/markets`
-2. Create quote request (off-chain, no gas)
-3. Poll for market maker quotes
-4. Commit to best quote
-5. Approve USDC to Settlement contract
-6. Call `fill()` on-chain (atomic: pay premium + mint options)
-
-## Zealy Quests
-- 5/25/50/100/500 testnet trades
-- $1K/$10K/$20K/$50K/$100K volume
-- $2,500 prize pool (top 100 leaderboard)
-
-## Backed by
-Alliance DAO
+Chat [@OG_LYID_bot](https://t.me/OG_LYID_bot) → `/buy` · Info: [@layerairdrop](https://t.me/layerairdrop)
 
 ## Contact
-@rmndkyl
 
-## 💰 Harga
-
-| Lisensi | Harga | Fitur |
-|---------|-------|-------|
-| **Single** | Rp 100.000 / ~$6 | 1 device, lifetime |
-| **Bundle (3 bot)** | Rp 250.000 / ~$16 | Pilih 3 bot, hemat 20% |
-| **Pro (semua bot)** | Rp 1.100.000 / ~$70 | Semua bot + update, hemat 30% |
-
-**Cara beli:** Chat [@OG_LYID_bot](https://t.me/OG_LYID_bot) di Telegram → /buy
-
-**Bayar pakai:**
-- 🇮🇩 DANA / GoPay / ShopeePay / BCA / Seabank
-- 🌐 Crypto (USDT/SOL/ETH)
-
-## 🔧 Troubleshooting
-
-| Masalah | Solusi |
-|---------|--------|
-| `Cannot find module` | Jalankan `npm install` di folder bot |
-| `insufficient balance` | Pastikan wallet punya cukup token untuk gas |
-| `429 Too Many Requests` | Tunggu 30-60 detik, bot auto-retry |
-| Proxy error | Cek `proxy.txt` — pastikan proxy aktif |
-| Bot diam/tidak jalan | Cek `config.json` — pastikan API key valid |
-| License invalid | Chat [@OG_LYID_bot](https://t.me/OG_LYID_bot) → /verify |
-
-**Butuh bantuan?** Join [Discord](https://discord.gg/ZK2NVkfSNn) atau chat [@layerairdrop](https://t.me/layerairdrop)
+@rmndkyl · [@layerairdrop](https://t.me/layerairdrop) · [Discord LYID](https://discord.gg/h4mrYDdq9)
