@@ -1,67 +1,161 @@
-# Convallax Testnet Bot v1.1
+# Convallax Bot
 
-Options volume farming untuk [Convallax](https://www.convallax.com/predict) — options exchange di prediction market (Polymarket YES outcomes), settle on-chain di Polygon Amoy.
+**Versi:** 1.1.0 · **Harga:** Rp 100.000 (~$6) · **Kontak pembelian:** [@rmndkyl](https://t.me/rmndkyl)
 
-Bot membuka RFQ ke market maker, commit ke quote terbaik, lalu mengeksekusi `fill()` satu transaksi: premium dibayar, collateral terkunci, option token (ERC-1155) di-mint.
+Volume farming otomatis untuk [Convallax](https://www.convallax.com/predict) — options exchange di prediction market (Polymarket YES outcomes), settle on-chain di Polygon Amoy.
 
-> Source code private (produk LYID). Repo ini hanya dokumentasi & bukti run.
+## Kebutuhan
 
-## Bukti run on-chain (14 Nov 2026)
+| Item | Detail |
+|---|---|
+| Runtime | Node.js 18+ |
+| Wallet | EVM / sesuai chain proyek (kamu sendiri) |
+| Proxy | tidak perlu |
+| Captcha | tidak perlu |
+| Akses | akun proyek yang kamu kelola sendiri |
 
-Fill nyata dari bot, bukan mockup:
+## Pembayaran
 
-- `0xd60e895c269482085c409ca850a7402eecfceb38118ed3f40ef9cddd113eac80` — PUT 80% @0.6964, 11 kontrak ($7.66), gas 203.243
-- `0x841d26c2cb38363eb0ebf84511b908dd6fab7e655d72818537aca00c175241dd` — PUT 20%, 67 kontrak ($11.61)
-- `0x86fb44da0d898f709ba0e590148b300afad2b42d0e7caa6696c472e62666cb8c` — PUT 40%, 18 kontrak ($6.27)
-- `0x853123aed63912218fb98b5b4aa06bffb69318d446abf191fb72f96eba3047f1` — PUT 40%, 15 kontrak ($4.84)
-- `0x0f478ef76926180aa5d7483a418b52cee2f073b053ea61f0237fcd78d8b51026` — buy di "Stripe acquire Paypal"
-- `0x2a212afda7ef0c93b7cf81120b9744392d298774e47874a1b59f720f8c80f814` — sisi **sell** 16 kontrak, premium diterima
+E-Wallet: DANA / GoPay / ShopeePay · Bank: BCA / Seabank · Crypto: contact for wallet address.
+Pembeli menghubungi [@rmndkyl](https://t.me/rmndkyl), kirim bukti transfer, lalu terima license key.
+
+---
+
+Bot beli/tulis call & put lewat RFQ (request-for-quote) market maker, lalu settle satu transaksi `fill()`.
+
+## Yang berubah di v1.1 (14 Nov 2026)
+
+- **API v3**: host pindah ke `api.convallax.com` (`/v1/markets`, `/v1/series`, `/quote-requests`, `/faucet`).
+- **Fix "No valid quotes available"** — dua penyebab nyata:
+  1. bot memilih series yang sudah **kedaluwarsa** (117 dari 253 series `settled=false` ternyata expiry-nya lewat) → sekarang filter `expiry > now + 48 jam`;
+  2. payload quote **tidak mengirim `market.yesPrice`** → market maker tidak pernah menjawab. Setelah `yesPrice` dikirim, quote masuk di attempt pertama (uji 32 request: 31 dapat quote).
+- **Humanization** (anti-sybil): ukuran tidak bulat, jeda tidak tetap, market/expiry/strike bervariasi, sesekali skip, kuota harian per wallet.
+- **Kontrak on-chain diperbarui** sesuai docs (alamat lama di README v1.0 sudah tidak dipakai).
+- `/positions` dan `/trades/confirm` dihapus — endpoint itu tidak ada di API (404). Posisi dibaca dari ERC-1155 on-chain.
+- `--status` (read-only), `--once`, `--side buy|sell`, `--dry-run`, `--trades N`, `--fast` (khusus uji).
+
+## Bukti run (bukan mockup)
+
+`node index.js --once` → quote PUT 80% @0.6964, 11 kontrak ($7.66), fill:
+
+`--daily --trades 2` (2 wallet, humanize aktif) → 4 fill tambahan:
+
+Sell side (`--side sell`) → premium diterima, collateral terkunci:
 
 Cek di [amoy.polygonscan.com](https://amoy.polygonscan.com).
-
-## Highlights v1.1
-
-- **API v3** (`api.convallax.com`): `/v1/markets`, `/v1/series`, `/quote-requests`, `/faucet`.
-- **Fix quote kosong**: filter series kedaluwarsa (expiry > 48 jam) + kirim `market.yesPrice`. Sebelum fix: 0/14 request dapat quote. Sesudah: 31/32 (uji matriks).
-- **Humanization anti-sybil**: budget acak non-bulat ($3–12), jeda 45–210s antar trade, 2–7 menit antar wallet, jitter sesi 0–15 menit, skip 8%, kuota 12 trade/wallet/hari, market disebar merata, 85% buy / 15% sell.
-- **Multi-wallet** dari satu `privateKey.txt`.
-- **Sell side** (menulis opsi, collateral USDC terkunci) dan **buy side**.
-- `--status` read-only, `--once`, `--daily`, `--faucet`, `--side`, `--dry-run`.
-
-## Fitur
-
-| Fitur | Keterangan |
-|---|---|
-| Auto faucet | 1000 test USDC / wallet / 24 jam |
-| Quote RFQ | buka request, poll quote, commit otomatis |
-| On-chain fill | approve + `fill()` atomik |
-| Multi-wallet | urutan diacak, jeda manusiawi |
-| State harian | `data/state.json` (kuota + riwayat tx) |
-| Retry pintar | pindah market/series kalau maker tidak menjawab |
 
 ## Chain & kontrak
 
 | Item | Nilai |
 |---|---|
-| Network | Polygon Amoy (chain ID 80002) |
-| RPC | `https://polygon-amoy-bor-rpc.publicnode.com` |
-| Core | `0x76c41a03e0993F0261bB3B1949320cA693f76faE` |
-| RFQ Settlement | `0x3E583BC44157c91F8c534372A3e91c371841107A` |
-| Option Token (ERC-1155) | `0x68a45fFc7d5282665ffa01Ec04ff133a4384F7e1` |
-| MockUSDC | `0xCc544B615B244Cf59A7cB6Cb7d7119ef73A485E5` |
+| Network | Polygon Amoy (chain ID `80002`) |
+| RPC default | `https://polygon-amoy-bor-rpc.publicnode.com` |
+| Explorer | https://amoy.polygonscan.com |
 
-## Status project (14 Nov 2026)
+Alamat di atas dicek ulang 14 Nov 2026: bytecode ada di chain, dan docs.convallax.com/guides/testnet memakai alamat yang sama.
 
-- Testnet masih live. **Belum ada pengumuman token/TGE/airdrop resmi.**
-- Backing: Alliance (ALL17). Audit: Sherlock.
-- Quest Zealy lama sudah tidak ditemukan di `zealy.io/cw/convallax`.
-- Halaman pihak ketiga yang menyebut TGE 2024/2025 = data lama, tidak valid.
+## Requirement
 
-## Dapatkan bot
+- Node.js 18+ (bot diuji di Node 22)
+- Wallet EVM dengan POL Amoy untuk gas (≈0.02 POL cukup untuk beberapa fill; 1 fill ≈ 203k gas)
+- Test USDC dari faucet Convallax (1000 USDC / wallet / 24 jam)
+- Tidak butuh API key — taker authorized saat `fill()` on-chain
 
-Bot tersedia sebagai produk LYID (Rp 100.000, lifetime, 1 device).
+## Setup
 
-Chat [@OG_LYID_bot](https://t.me/OG_LYID_bot) → `/buy` · Info: [@layerairdrop](https://t.me/layerairdrop)
+```bash
+npm install
+```
+
+2. Sesuaikan `config.json` bila perlu (budget, jeda, kuota). Default sudah aman untuk testnet.
+3. Cek dulu tanpa transaksi:
+
+```bash
+node index.js --status
+```
+
+## Perintah
+
+```bash
+node index.js                 # menu interaktif
+node index.js --status        # read-only: faucet, series aktif, saldo, kuota hari ini
+node index.js --faucet        # klaim 1000 USDC semua wallet (cooldown 24 jam)
+node index.js --once          # 1 trade wallet pertama (proof run)
+node index.js --daily         # rutin harian semua wallet (faucet + trading, humanize)
+node index.js --daily --trades 6
+node index.js --side sell     # paksa sisi sell (menulis opsi, collateral USDC terkunci)
+node index.js --dry-run       # sampai quote saja, tidak commit/fill
+node index.js --fast          # jeda pendek, hanya untuk uji
+```
+
+## Humanization (anti-sybil)
+
+| Perilaku | Nilai default |
+|---|---|
+| Budget beli | acak $3–$12, 2 desimal, hindari angka bulat |
+| Size jual | 10–40 kontrak (acak, tidak seragam) |
+| Sisi trade | 85% buy, 15% sell |
+| Jeda antar trade | 45–210 detik |
+| Jeda antar wallet | 2–7 menit |
+| Jitter mulai sesi | 0–15 menit |
+| Skip (ragu) | 8% per trade |
+| Kuota harian | 12 trade/wallet (state di `data/state.json`) |
+| Urutan wallet | diacak tiap run |
+| Pilihan market | disebar merata (bukan menumpuk di 1 market) |
+
+Semua bisa diubah di blok `humanize` dan `trade` pada `config.json`.
+
+## Alur trade
+
+1. `GET /v1/series?settled=false` → filter expiry > 48 jam dan punya harga YES.
+2. `GET /api/markets` (proxy frontend) → `yesPrice` per conditionId.
+3. `POST /quote-requests` (market + option + trade) → `requestId`, `makersConnected`.
+4. Poll `GET /quote-requests/:id/quotes` tiap ~1.5s sampai `bestQuote` atau request ditutup.
+5. `POST /quote-requests/:id/commit` → order EIP-712 + signature maker.
+6. `approve()` USDC ke spender dari `takerApproval` (kalau allowance kurang).
+7. `fill(order, makerSignature)` → premium dibayar, collateral terkunci, opsi di-mint (ERC-1155), satu tx.
+8. Catat tx ke `data/state.json`.
+
+Kalau maker tidak menjawab dalam ~12 detik, bot pindah kandidat (maks 4 attempt, beda market).
+
+## Troubleshooting
+
+| Masalah | Penyebab / solusi |
+|---|---|
+| `Tidak ada quote dari market maker` | Series jarang di-quote. Bot otomatis pindah kandidat. Pastikan `yesPrice` terisi (bot ambil dari `/api/markets`). |
+| `HTTP 503` saat faucet | Relay faucet belum dikonfigurasi di sisi Convallax — coba lagi nanti, atau pakai wallet yang sudah punya USDC. |
+| `429` saat faucet | Cooldown 24 jam per wallet. Bukan error. |
+| `Low POL` | Isi POL Amoy (faucet Polygon). 1 fill ≈ 0.002–0.004 POL. |
+| `fill reverted` | Order `validUntil` sudah lewat (signature kedaluwarsa) — jalankan ulang; bot commit baru. |
+| RPC error / timeout | Ganti `rpcUrl` di `config.json` (mis. `https://polygon-amoy.drpc.org`). |
+
+## Struktur
+
+```
+index.js            # CLI + alur trade
+src/api.js          # klien RFQ API v3 + harga YES dari proxy
+src/trader.js       # ethers: approve, fill, baca series/posisi
+src/humanize.js     # ukuran/jeda acak + state harian per wallet
+config.json         # parameter trade & humanize
+data/state.json     # kuota + riwayat tx hari ini (tidak di-commit)
+```
+
+## Harga (LYID)
+
+| Lisensi | Harga | Fitur |
+|---|---|---|
+| Single | Rp 100.000 | 1 device, lifetime |
+| Bundle (3 bot) | Rp 100.000 | pilih 3 bot |
+| Pro (semua bot) | Rp 100.000 | semua bot + update |
+
+Beli: [@OG_LYID_bot](https://t.me/OG_LYID_bot) → `/buy` · Bayar: DANA/GoPay/ShopeePay/BCA/Seabank atau crypto.
+
+## Catatan status project (14 Nov 2026)
+
+- Testnet masih jalan dan masih **belum ada pengumuman token/TGE/airdrop resmi**.
+- Backing: Alliance (ALL17). Audit kontrak: Sherlock. Docs: https://docs.convallax.com.
+- Quest Zealy lama ($2.500 prize pool) sudah tidak ditemukan di `zealy.io/cw/convallax` — jangan jadikan patokan.
+- Halaman pihak ketiga (Bitget dll) yang menyebut TGE "late 2024/early 2025" itu data lama/tidak valid.
 
 ## Contact
 
